@@ -1,0 +1,33 @@
+# Pushing a tag vX.Y.Z publishes a GitHub release with ButtonBag-vX.Y.Z.zip, the addon in a
+# ButtonBag/ folder. The tag must match "## Version" in ButtonBag.toc.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the tag matches the .toc version
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          if ! grep -qx "## Version: ${version}" ButtonBag.toc; then
+            echo "Tag ${GITHUB_REF_NAME} does not match ButtonBag.toc:"
+            grep "## Version" ButtonBag.toc
+            exit 1
+          fi
+
+      - name: Package
+        run: git archive --format=zip --prefix=ButtonBag/ -o "ButtonBag-${GITHUB_REF_NAME}.zip" HEAD
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: ButtonBag-${{ github.ref_name }}.zip
+          generate_release_notes: true

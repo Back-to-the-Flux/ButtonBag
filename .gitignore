@@ -1,0 +1,5 @@
+# loose files dropped at the top of the folder (screenshots, icon copies) are not part of the addon
+/*.png
+/*.jpg
+/*.jpeg
+/*.webp

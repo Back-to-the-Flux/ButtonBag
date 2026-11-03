@@ -1,0 +1,7 @@
+* text=auto eol=lf
+*.tga binary
+
+# not part of the addon: left out of release zips
+.github export-ignore
+assets export-ignore
+.gitattributes export-ignore
