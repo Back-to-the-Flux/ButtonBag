@@ -1,6 +1,6 @@
 ## Interface: 11200
 ## Title: |cffd9a441Button|rBag
 ## Notes: Azeroth Survivors: gathers the AddOn buttons around the minimap into one bag button that drops down a panel holding them all. Right-click the bag or /bbag for settings.
-## Version: 0.2.0
+## Version: 0.3.0
 ## SavedVariables: ButtonBagDB
 ButtonBag.lua

@@ -21,6 +21,8 @@ it as usual.
 - **Open your way**: on a click or just by pointing at the bag, toward the middle of the screen or
   always down, up, left or right.
 - **Bag size and shape**: Small, Normal, Large or Huge buttons, 1 to 6 per row.
+- **Round look**: a square button gets the same round gold ring as the rest while it's in the
+  bag, so the bag looks even. It wears its own look again once it leaves.
 - **Folds itself up**: after you left-click a button in it, when the mouse has been away for a
   moment (0.5 to 5 seconds, your choice), or on Escape. Each can be turned off.
 - **Nothing is lost**: an addon can still show, hide and click its button while it's in the bag.

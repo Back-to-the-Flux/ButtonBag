@@ -10,6 +10,7 @@ ButtonBag gathers every addon's minimap button into one bag button. Click the ba
 - **Your order**: A to Z, or arrange them yourself with Up and Down.
 - **Open your way**: on a click or on hover, toward the middle of the screen or always down, up, left or right.
 - **Size and shape**: Small to Huge buttons, 1 to 6 per row.
+- **Round look**: square buttons get the same round gold ring as the rest, so the bag looks even.
 - **Folds itself up** after a click, when the mouse moves away (0.5 to 5 seconds) or on Escape.
 - **Nothing is lost**: turn collecting off and every button goes back exactly where it was.
 - Works with square minimaps, and the settings window matches the game's own menus.

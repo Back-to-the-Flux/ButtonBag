@@ -8,7 +8,8 @@
 
 local defaults = { enabled = true, button = true, btnAngle = 45, cols = 4,
   closeOnClick = true, closeOnLeave = true, keep = {},
-  size = 1, hoverOpen = false, direction = "auto", sortMode = "az", order = {}, closeDelay = 1.5 }
+  size = 1, hoverOpen = false, direction = "auto", sortMode = "az", order = {}, closeDelay = 1.5,
+  roundLook = true }
 local db
 
 local function Print(msg) DEFAULT_CHAT_FRAME:AddMessage("|cffd9a441Button|rBag " .. msg) end
@@ -300,6 +301,98 @@ local function Release(rec)
   if b:GetScript("OnClick") == rec.ourClick then b:SetScript("OnClick", rec.click) end
 end
 
+-- ---------------------------------------------------------------- the round look
+-- A button that doesn't wear the minimap's round gold ring gets one while it's in the bag, so the
+-- bag looks even: its backdrop textures (BACKGROUND and BORDER layers) are hidden, its icon is
+-- centered on a dark disc, and the ring goes over it. Letting it go puts all of that back.
+local RING = "Interface\\Minimap\\MiniMap-TrackingBorder"
+local ICON_SIZE, DISC_R = 20, 11
+local RING_X, RING_Y = 16.5, -15   -- the middle of the ring, from the top left of a 31 by 31 button
+
+local function HasRing(b)
+  for _, r in ipairs({ b:GetRegions() }) do
+    local path = r.GetTexture and r:GetTexture()
+    if type(path) == "string" and string.find(string.lower(path), "trackingborder") then return true end
+  end
+end
+
+local function Skin(rec)
+  if rec.skinned then return end
+  local b = rec.button
+  if rec.hasRing == nil then rec.hasRing = HasRing(b) or false end
+  if rec.hasRing then return end
+  rec.skinned = true
+  if not rec.skin then
+    -- made once per button: a ring on a frame over it, a dark disc under its icon
+    local skin = CreateFrame("Frame", nil, b)
+    skin:SetWidth(31)
+    skin:SetHeight(31)
+    skin:SetPoint("CENTER", b, "CENTER", 0, 0)
+    local ring = skin:CreateTexture(nil, "OVERLAY")
+    ring:SetTexture(RING)
+    ring:SetWidth(53)
+    ring:SetHeight(53)
+    ring:SetPoint("TOPLEFT", skin, "TOPLEFT", 0, 0)
+    rec.disc = {}
+    for _, c in ipairs(CORNERS) do
+      local t = b:CreateTexture(nil, "BACKGROUND")
+      t:SetTexture(MEDIA .. "corner")
+      t:SetTexCoord(c[4], c[5], c[6], c[7])
+      t:SetVertexColor(0.05, 0.04, 0.025, 1)
+      t:SetWidth(DISC_R)
+      t:SetHeight(DISC_R)
+      t:SetPoint(c[1], skin, "TOPLEFT", RING_X - c[2] * DISC_R, RING_Y - c[3] * DISC_R)
+      table.insert(rec.disc, t)
+    end
+    rec.skin = skin
+  end
+  -- what the button had: backdrops hidden, icons moved onto the disc
+  rec.hidden, rec.icons = {}, {}
+  for _, r in ipairs({ b:GetRegions() }) do
+    local ours = false
+    for _, t in ipairs(rec.disc) do
+      if t == r then ours = true end
+    end
+    if not ours and r.GetTexture and r.GetDrawLayer then
+      local layer = r:GetDrawLayer()
+      if layer == "BACKGROUND" or layer == "BORDER" then
+        if r:IsShown() then
+          table.insert(rec.hidden, r)
+          r:Hide()
+        end
+      elseif layer == "ARTWORK" or layer == "OVERLAY" then
+        local icon = { tex = r, w = r:GetWidth(), h = r:GetHeight(), points = {} }
+        for i = 1, r:GetNumPoints() do
+          local p1, p2, p3, p4, p5 = r:GetPoint(i)
+          table.insert(icon.points, { p1, p2, p3, p4, p5 })
+        end
+        r:ClearAllPoints()
+        r:SetWidth(ICON_SIZE)
+        r:SetHeight(ICON_SIZE)
+        r:SetPoint("CENTER", rec.skin, "TOPLEFT", RING_X, RING_Y)
+        table.insert(rec.icons, icon)
+      end
+    end
+  end
+  for _, t in ipairs(rec.disc) do t:Show() end
+  rec.skin:Show()
+end
+
+local function Unskin(rec)
+  if not rec.skinned then return end
+  rec.skinned = nil
+  rec.skin:Hide()
+  for _, t in ipairs(rec.disc) do t:Hide() end
+  for _, r in ipairs(rec.hidden) do r:Show() end
+  for _, icon in ipairs(rec.icons) do
+    local r = icon.tex
+    r:ClearAllPoints()
+    if icon.w and icon.w > 0 then r:SetWidth(icon.w) end
+    if icon.h and icon.h > 0 then r:SetHeight(icon.h) end
+    for _, p in ipairs(icon.points) do r:SetPoint(p[1], p[2], p[3], p[4], p[5]) end
+  end
+end
+
 -- every button found, A to Z or in the order set in the settings (new ones go last, A to Z)
 local function Ordered()
   local rank = {}
@@ -369,6 +462,7 @@ local function Sync()
     elseif not want and inBag[rec.button] then
       Release(rec)
     end
+    if inBag[rec.button] and db.roundLook then Skin(rec) else Unskin(rec) end
   end
   if not db.enabled then bag:Hide() end
   Layout()
@@ -596,6 +690,7 @@ Choice("direction", "Open direction", { { "auto", "Auto", "Opens down when the b
   "Which way the bag opens from the bag button.", On)
 Choice("size", "Bag size", { { 0.75, "Small" }, { 1, "Normal" }, { 1.25, "Large" }, { 1.5, "Huge" } },
   "How big the buttons in the bag are. Normal is the size they have on the minimap.", On)
+Check("roundLook", "Round look", "Gives buttons that aren't round, like square ones, the same round gold ring as the rest while they're in the bag. Off shows each button as its AddOn drew it.", nil, On)
 Choice("cols", "Buttons per row", { { 1, "1" }, { 2, "2" }, { 3, "3" }, { 4, "4" }, { 5, "5" }, { 6, "6" } },
   "How many buttons sit side by side in the bag before a new row starts.", On)
 Check("closeOnClick", "Close after a click", "Folds the bag up after you left-click one of its buttons. Right-clicks leave it open.", nil, On)
