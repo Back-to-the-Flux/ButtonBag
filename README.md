@@ -20,6 +20,8 @@ it as usual.
 - **Your order**: A to Z, or *My order*, where Up and Down in the list move each button.
 - **Open your way**: on a click or just by pointing at the bag, toward the middle of the screen or
   always down, up, left or right.
+- **Icons or names**: show the buttons side by side, or as a list with each addon's name beside
+  its icon. Click or point anywhere on a row.
 - **Bag size and shape**: Small, Normal, Large or Huge buttons, 1 to 6 per row.
 - **Round look**: a square button gets the same round gold ring as the rest while it's in the
   bag, so the bag looks even. It wears its own look again once it leaves.

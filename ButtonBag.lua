@@ -9,7 +9,7 @@
 local defaults = { enabled = true, button = true, btnAngle = 45, cols = 4,
   closeOnClick = true, closeOnLeave = true, keep = {},
   size = 1, hoverOpen = false, direction = "auto", sortMode = "az", order = {}, closeDelay = 1.5,
-  roundLook = true }
+  roundLook = true, style = "icons" }
 local db
 
 local function Print(msg) DEFAULT_CHAT_FRAME:AddMessage("|cffd9a441Button|rBag " .. msg) end
@@ -266,6 +266,7 @@ local function Capture(rec)
   local b = rec.button
   Wrap(rec)
   rec.parent, rec.strata, rec.level = b:GetParent(), b:GetFrameStrata(), b:GetFrameLevel()
+  rec.scale = b:GetScale()
   rec.points = {}
   for i = 1, b:GetNumPoints() do
     local p1, p2, p3, p4, p5 = b:GetPoint(i)
@@ -294,6 +295,7 @@ local function Release(rec)
   b:SetParent(rec.parent)
   b:SetFrameStrata(rec.strata)
   b:SetFrameLevel(rec.level)
+  b:SetScale(rec.scale)   -- the Names view shrinks it
   b:ClearAllPoints()
   for _, p in ipairs(rec.points) do b:SetPoint(p[1], p[2], p[3], p[4], p[5]) end
   if not b:GetScript("OnDragStart") then b:SetScript("OnDragStart", rec.dragStart) end
@@ -441,9 +443,58 @@ local function Lift(b)
   end
 end
 
+-- runs one of a button's own scripts as if the mouse were on the button itself
+local function Forward(b, script, which)
+  local f = b:GetScript(script)
+  if not f then return end
+  local oldThis, oldArg = this, arg1
+  this, arg1 = b, which
+  f()
+  this, arg1 = oldThis, oldArg
+end
+
+-- The Names view: one row per button, its icon shrunk on the left and its name beside it. The
+-- whole row clicks and hovers as the button does; the button itself sits on top of the row.
+local ROW_H, LIST_SCALE = 26, 0.7
+local nameRows = {}
+local function NameRow(i)
+  if nameRows[i] then return nameRows[i] end
+  local row = CreateFrame("Button", nil, bag)
+  row:SetHeight(ROW_H)
+  row:SetFrameLevel(bag:GetFrameLevel() + 2)
+  row:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+  local hot = Solid(row, "BACKGROUND", UI.selTop)
+  hot:SetAllPoints(row)
+  hot:Hide()
+  row.hot = hot
+  local name = Text(row, 12, UI.text)
+  name:SetPoint("LEFT", row, "LEFT", ROW_H + 6, 0)
+  name:SetJustifyH("LEFT")
+  row.name = name
+  row:SetScript("OnClick", function() if this.rec then Forward(this.rec.button, "OnClick", arg1) end end)
+  row:SetScript("OnEnter", function() if this.rec then Forward(this.rec.button, "OnEnter") end end)
+  row:SetScript("OnLeave", function() if this.rec then Forward(this.rec.button, "OnLeave") end end)
+  nameRows[i] = row
+  return row
+end
+
+-- puts a bagged button's middle at x, y from the bag's top left (offsets count in its own scale)
+local function Place(rec, scale, x, y)
+  local b = rec.button
+  if b:GetScale() ~= scale then b:SetScale(scale) end
+  Lift(b)
+  rec.clearPoints(b)
+  rec.setPoint(b, "CENTER", bag, "TOPLEFT", x / scale, y / scale)
+end
+
 Layout = function()
   local list = Shown()
   local n = table.getn(list)
+  local names = db.style == "names"
+  for i = n + 1, table.getn(nameRows) do
+    nameRows[i].rec = nil
+    nameRows[i]:Hide()
+  end
   if n == 0 then
     empty:Show()
     bag:SetWidth(120)
@@ -451,13 +502,33 @@ Layout = function()
     return
   end
   empty:Hide()
+  if names then
+    local widest = 0
+    for i, rec in ipairs(list) do
+      local row = NameRow(i)
+      row.rec = rec
+      row.name:SetText(rec.label)
+      widest = math.max(widest, row.name:GetStringWidth())
+      row:ClearAllPoints()
+      row:SetPoint("TOPLEFT", bag, "TOPLEFT", PAD, -(PAD + ROW_H * (i - 1)))
+      row:Show()
+      Place(rec, rec.scale * LIST_SCALE, PAD + ROW_H / 2, -(PAD + ROW_H * (i - 0.5)))
+    end
+    local w = math.max(120, ROW_H + 6 + math.ceil(widest) + 12)
+    for i = 1, n do nameRows[i]:SetWidth(w) end
+    bag:SetWidth(PAD * 2 + w)
+    bag:SetHeight(PAD * 2 + ROW_H * n)
+    return
+  end
+  for i = 1, table.getn(nameRows) do
+    nameRows[i].rec = nil
+    nameRows[i]:Hide()
+  end
   local cols = math.min(db.cols, n)
   local rows = math.ceil(n / cols)
   for i, rec in ipairs(list) do
     local c, r = math.mod(i - 1, cols), math.floor((i - 1) / cols)
-    Lift(rec.button)
-    rec.clearPoints(rec.button)
-    rec.setPoint(rec.button, "CENTER", bag, "TOPLEFT", PAD + CELL * (c + 0.5), -(PAD + CELL * (r + 0.5)))
+    Place(rec, rec.scale, PAD + CELL * (c + 0.5), -(PAD + CELL * (r + 0.5)))
   end
   bag:SetWidth(PAD * 2 + CELL * cols)
   bag:SetHeight(PAD * 2 + CELL * rows)
@@ -533,6 +604,10 @@ bag:SetScript("OnUpdate", function()
     if rec.skinned then
       if Over(rec.button) then rec.glow:Show() else rec.glow:Hide() end
     end
+  end
+  -- and in the Names view the row under the mouse lights up
+  for _, row in ipairs(nameRows) do
+    if row.rec and Over(row) then row.hot:Show() else row.hot:Hide() end
   end
   if tick < 0.5 then return end
   tick = 0
@@ -707,8 +782,12 @@ Choice("direction", "Open direction", { { "auto", "Auto", "Opens down when the b
 Choice("size", "Bag size", { { 0.75, "Small" }, { 1, "Normal" }, { 1.25, "Large" }, { 1.5, "Huge" } },
   "How big the buttons in the bag are. Normal is the size they have on the minimap.", On)
 Check("roundLook", "Round look", "Gives buttons that aren't round, like square ones, the same round gold ring as the rest while they're in the bag. Off shows each button as its AddOn drew it.", nil, On)
+Choice("style", "Bag shows", { { "icons", "Icons", "The buttons side by side, as they look on the minimap." },
+  { "names", "Names", "A list: each button's icon, smaller, with its AddOn's name beside it. Click or point anywhere on a row." } },
+  "Whether the bag shows the buttons as icons or as a list of names.", On)
 Choice("cols", "Buttons per row", { { 1, "1" }, { 2, "2" }, { 3, "3" }, { 4, "4" }, { 5, "5" }, { 6, "6" } },
-  "How many buttons sit side by side in the bag before a new row starts.", On)
+  "How many buttons sit side by side in the bag before a new row starts. The Names list is always one column.",
+  function() return db.enabled and db.style ~= "names" end)
 Check("closeOnClick", "Close after a click", "Folds the bag up after you left-click one of its buttons. Right-clicks leave it open.", nil, On)
 Check("closeOnLeave", "Close when the mouse leaves", "Folds the bag up a moment after the mouse leaves it.", nil, On)
 Choice("closeDelay", "Close after", { { 0.5, "0.5s" }, { 1, "1s" }, { 1.5, "1.5s" }, { 3, "3s" }, { 5, "5s" } },
