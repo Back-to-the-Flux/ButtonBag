@@ -333,6 +333,15 @@ local function Skin(rec)
     ring:SetWidth(53)
     ring:SetHeight(53)
     ring:SetPoint("TOPLEFT", skin, "TOPLEFT", 0, 0)
+    -- the blue glow round minimap buttons get on hover; the bag shows it (see its OnUpdate)
+    local over = CreateFrame("Frame", nil, skin)
+    over:SetAllPoints(skin)
+    local glow = over:CreateTexture(nil, "ARTWORK")
+    glow:SetTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
+    glow:SetBlendMode("ADD")
+    glow:SetAllPoints(over)
+    glow:Hide()
+    rec.glow = glow
     rec.disc = {}
     for _, c in ipairs(CORNERS) do
       local t = b:CreateTexture(nil, "BACKGROUND")
@@ -381,6 +390,7 @@ end
 local function Unskin(rec)
   if not rec.skinned then return end
   rec.skinned = nil
+  rec.glow:Hide()
   rec.skin:Hide()
   for _, t in ipairs(rec.disc) do t:Hide() end
   for _, r in ipairs(rec.hidden) do r:Show() end
@@ -517,6 +527,12 @@ bag:SetScript("OnUpdate", function()
   if db.closeOnLeave and away > db.closeDelay then
     bag:Hide()
     return
+  end
+  -- a button given the round look glows under the mouse like the round ones do
+  for _, rec in ipairs(found) do
+    if rec.skinned then
+      if Over(rec.button) then rec.glow:Show() else rec.glow:Hide() end
+    end
   end
   if tick < 0.5 then return end
   tick = 0
